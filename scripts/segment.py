@@ -110,7 +110,7 @@ def get_fnames(fpath, output_dir):
     
     return "{}-pollen.png".format(name), "{}-tube.png".format(name)
 
-def analysis(input_file, ouput_dir=None):
+def analyse(input_file, ouput_dir=None):
     pollen_fname, tube_fname = get_fnames(input_file, ouput_dir) 
 
     image = Image.from_file(input_file)
@@ -134,7 +134,7 @@ def main():
     if not os.path.isfile(args.input_file):
         parser.error("No such file: {}".format(args.input_file))
 
-    analysis(args.input_file)
+    analyse(args.input_file)
 
 
 if __name__ == "__main__":
