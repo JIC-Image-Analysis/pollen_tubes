@@ -54,12 +54,13 @@ def nand_mask(im1, im2):
     """Return im1 nand im2 mask."""
     return np.logical_and(im1, np.logical_not(im2))
 
-@transformation
-def highlight(intensity, mask):
+def highlight(intensity, mask, fname):
     red_ann = AnnotatedImage.from_grayscale(mask*255, (255, 0, 0))
     green_ann = AnnotatedImage.from_grayscale(intensity, (0, 255, 0))
     blue_ann = AnnotatedImage.from_grayscale(intensity, (0, 0, 255))
-    return red_ann + green_ann + blue_ann
+    ann = red_ann + green_ann + blue_ann
+    with open(fname, "wb") as fh:
+        fh.write(ann.png())
     
 def get_edges(image):
     edges = find_edges_sobel(image)
@@ -105,8 +106,8 @@ def analysis(image):
     pollen = get_pollen(edges, mask)
 
     intensity = normalise(invert(projection))*255
-    highlight(intensity, pollen)
-    highlight(intensity, tube)
+    highlight(intensity, pollen, "pollen.png")
+    highlight(intensity, tube, "tube.png")
 
 
 def main():
