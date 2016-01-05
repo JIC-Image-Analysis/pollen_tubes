@@ -61,6 +61,37 @@ def highlight(intensity, mask):
     blue_ann = AnnotatedImage.from_grayscale(intensity, (0, 0, 255))
     return red_ann + green_ann + blue_ann
     
+def get_edges(image):
+    edges = find_edges_sobel(image)
+    edges = threshold_gt_percentile(edges, 90)
+    edges = remove_small_objects(edges, min_size=100)
+    edges = dilate_binary(edges, selem=disk(6))
+    edges = erode_binary(edges, selem=disk(6))
+    edges = erode_binary(edges, selem=disk(6))
+    return edges
+
+
+def get_mask(image):
+    mask = threshold_lt_percentile(image, 10)
+    mask = remove_small_objects(mask, min_size=100)
+    mask = erode_binary(mask, selem=disk(10))
+    mask = dilate_binary(mask, selem=disk(10))
+    mask = dilate_binary(mask, selem=disk(8))
+    return mask
+
+
+def get_tube(edges, mask):
+    tube = nand_mask(edges, mask)
+    tube = remove_small_objects(tube, min_size=700)
+    return tube
+
+
+def get_pollen(edges, mask):
+    pollen = nand_mask(mask, edges)
+    pollen = erode_binary(pollen, selem=disk(6))
+    pollen = dilate_binary(pollen, selem=disk(6))
+    return pollen
+
 
 def analysis(image):
     image = identity(image)
@@ -68,36 +99,14 @@ def analysis(image):
     image = equalize_adaptive_clahe(projection)
     image = smooth_gaussian(image, sigma=1)
 
-    edges = find_edges_sobel(image)
-    edges = threshold_gt_percentile(edges, 90)
-    edges = remove_small_objects(edges, min_size=100)
-    edges = dilate_binary(edges, selem=disk(6))
-    edges = erode_binary(edges, selem=disk(6))
-    edges = erode_binary(edges, selem=disk(6))
-
-    mask = threshold_lt_percentile(image, 10)
-    mask = remove_small_objects(mask, min_size=100)
-    mask = erode_binary(mask, selem=disk(10))
-    mask = dilate_binary(mask, selem=disk(10))
-    mask = dilate_binary(mask, selem=disk(8))
-
-    tube = nand_mask(edges, mask)
-    tube = remove_small_objects(tube, min_size=700)
-
-    pollen = nand_mask(mask, edges)
-    pollen = erode_binary(pollen, selem=disk(6))
-    pollen = dilate_binary(pollen, selem=disk(6))
+    edges = get_edges(image)
+    mask = get_mask(image)
+    tube = get_tube(edges, mask)
+    pollen = get_pollen(edges, mask)
 
     intensity = normalise(invert(projection))*255
     highlight(intensity, pollen)
     highlight(intensity, tube)
-
-#   red_ann = AnnotatedImage.from_grayscale(normalise(tube)*255, (255, 0, 0))
-
-#   green_ann = AnnotatedImage.from_grayscale(intensity, (0, 255, 0))
-#   blue_ann = AnnotatedImage.from_grayscale(intensity, (0, 0, 255))
-
-#   return red_ann + green_ann + blue_ann
 
 
 def main():
