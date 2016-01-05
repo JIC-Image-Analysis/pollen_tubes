@@ -62,6 +62,14 @@ def highlight(intensity, mask, fname):
     with open(fname, "wb") as fh:
         fh.write(ann.png())
     
+def get_equalised_image_and_intensity(image):
+    projection = mean_intensity_projection(image)
+    image = equalize_adaptive_clahe(projection)
+    image = smooth_gaussian(image, sigma=1)
+
+    intensity = normalise(invert(projection))*255
+    return image, intensity
+
 def get_edges(image):
     edges = find_edges_sobel(image)
     edges = threshold_gt_percentile(edges, 90)
@@ -95,17 +103,14 @@ def get_pollen(edges, mask):
 
 
 def analysis(image):
-    image = identity(image)
-    projection = mean_intensity_projection(image)
-    image = equalize_adaptive_clahe(projection)
-    image = smooth_gaussian(image, sigma=1)
+    image, intensity = get_equalised_image_and_intensity(image)
 
     edges = get_edges(image)
     mask = get_mask(image)
     tube = get_tube(edges, mask)
     pollen = get_pollen(edges, mask)
 
-    intensity = normalise(invert(projection))*255
+
     highlight(intensity, pollen, "pollen.png")
     highlight(intensity, tube, "tube.png")
 
