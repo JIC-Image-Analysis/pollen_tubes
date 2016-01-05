@@ -102,17 +102,28 @@ def get_pollen(edges, mask):
     return pollen
 
 
-def analysis(image):
+def get_fnames(fpath, output_dir):
+    bname = os.path.basename(fpath)
+    name, suffix = bname.split(".")
+    if output_dir:
+        name = os.path.join(output_dir, name)
+    
+    return "{}-pollen.png".format(name), "{}-tube.png".format(name)
+
+def analysis(input_file, ouput_dir=None):
+    pollen_fname, tube_fname = get_fnames(input_file, ouput_dir) 
+
+    image = Image.from_file(input_file)
     image, intensity = get_equalised_image_and_intensity(image)
 
     edges = get_edges(image)
     mask = get_mask(image)
+
     tube = get_tube(edges, mask)
     pollen = get_pollen(edges, mask)
 
-
-    highlight(intensity, pollen, "pollen.png")
-    highlight(intensity, tube, "tube.png")
+    highlight(intensity, pollen, pollen_fname)
+    highlight(intensity, tube, tube_fname)
 
 
 def main():
@@ -123,8 +134,7 @@ def main():
     if not os.path.isfile(args.input_file):
         parser.error("No such file: {}".format(args.input_file))
 
-    image = Image.from_file(args.input_file)
-    analysis(image)
+    analysis(args.input_file)
 
 
 if __name__ == "__main__":
