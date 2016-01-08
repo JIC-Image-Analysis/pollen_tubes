@@ -38,15 +38,22 @@ def threshold_abs(image, threshold):
 
 
 @transformation
+def remove_large_objects(segmentation, max_size):
+    for i in segmentation.identifiers:
+        region = segmentation.region_by_identifier(i)
+        if region.area > max_size:
+            segmentation[region] = 0
+    return segmentation
+
+
+@transformation
 def remove_non_round(segmentation, props, ff_cutoff):
     for i, p in zip(segmentation.identifiers, props):
         region = segmentation.region_by_identifier(i)
+        print(form_factor(p))
         if form_factor(p) < ff_cutoff:
             segmentation[region] = 0
     return segmentation
-    
-    
-    
 
 
 def grains(input_file, threshold, output_dir=None):
@@ -60,13 +67,14 @@ def grains(input_file, threshold, output_dir=None):
     intensity = mean_intensity_projection(image)
 
     mask = threshold_abs(intensity, threshold)
-    mask = remove_small_objects(mask, min_size=100)
+    mask = remove_small_objects(mask, min_size=1000)  # To fill holes.
     mask = invert(mask)
-    mask = remove_small_objects(mask, min_size=500)
+    mask = remove_small_objects(mask, min_size=500)   # To remove noise.
 
     segmentation = connected_components(mask, background=0)
+    segmentation = remove_large_objects(segmentation, max_size=3000)  # To remove clusters.
     props = skimage.measure.regionprops(segmentation)
-    segmentation = remove_non_round(segmentation, props, 0.7)
+    segmentation = remove_non_round(segmentation, props, 0.1)  # To remove thin tubes.
 
     mask[np.where(segmentation != 0)] = 0
     mask_region = Region(mask)
