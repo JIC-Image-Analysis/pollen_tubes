@@ -35,17 +35,18 @@ def remove_scalebar(image, value):
 
 @transformation
 def fill_holes(image, min_size):
+    tmp_autowrite_on = AutoWrite.on
     AutoWrite.on = False
     image = invert(image)
     image = remove_small_objects(image, min_size=min_size)
     image = invert(image)
-    AutoWrite.on = True
+    AutoWrite.on = tmp_autowrite_on
     return image
 
-def tubes(input_file, output_dir=None):
+def find_tubes(input_file, output_dir=None):
     bname = os.path.basename(input_file)
     name, suffix = bname.split(".")
-    name = name + ".png"
+    name = "tubes-" + name + ".png"
     if output_dir:
         name = os.path.join(output_dir, name)
 
@@ -71,8 +72,46 @@ def tubes(input_file, output_dir=None):
     with open(name, "wb") as fh:
         fh.write(ann.png())
 
+    return segmentation
 
-def analyse_all(input_dir, threshold, output_dir):
+
+def find_grains(input_file, output_dir=None):
+    bname = os.path.basename(input_file)
+    name, suffix = bname.split(".")
+    name = "grains-" + name + ".png"
+    if output_dir:
+        name = os.path.join(output_dir, name)
+
+    image = Image.from_file(input_file)
+    intensity = mean_intensity_projection(image)
+    image = remove_scalebar(intensity, np.mean(intensity))
+    image = threshold_otsu(image)
+    image = invert(image)
+    image = erode_binary(image, selem=disk(4))
+    image = remove_small_objects(image, min_size=500)
+    image = fill_holes(image, min_size=500)
+    image = dilate_binary(image, selem=disk(4))
+
+    segmentation = connected_components(image, background=0)
+
+    ann = AnnotatedImage.from_grayscale(intensity)
+    for i in segmentation.identifiers:
+        region = segmentation.region_by_identifier(i)
+        ann.mask_region(region.border.dilate(), color=pretty_color(i))
+
+    with open(name, "wb") as fh:
+        fh.write(ann.png())
+
+    return segmentation
+
+    
+
+def annotate(input_file, output_dir=None):
+#   tubes = find_tubes(input_file, output_dir)
+    grains = find_grains(input_file, output_dir)
+
+
+def analyse_all(input_dir, output_dir):
     for fname in os.listdir(input_dir):
         if not fname.lower().endswith("jpg"):
             continue
@@ -80,7 +119,7 @@ def analyse_all(input_dir, threshold, output_dir):
             continue
         fpath = os.path.join(input_dir, fname)
         print(fpath)
-        tubes(fpath, output_dir)
+        annotate(fpath, output_dir)
 
 
 def main():
@@ -90,7 +129,7 @@ def main():
     args = parser.parse_args()
 
     if os.path.isfile(args.input_file):
-        tubes(args.input_file)
+        annotate(args.input_file)
     elif os.path.isdir(args.input_file):
         AutoWrite.on = False
         if args.output_dir is None:
