@@ -4,11 +4,43 @@ import os
 import argparse
 import warnings
 
+import numpy as np
+from skimage.morphology import disk
+
 from jicbioimage.core.image import Image
-from jicbioimage.core.io import AutoWrite
+from jicbioimage.core.transform import transformation
+from jicbioimage.core.util.color import pretty_color
+from jicbioimage.core.io import AutoWrite, AutoName
 from jicbioimage.transform import (
     mean_intensity_projection,
+    find_edges_sobel,
+    threshold_otsu,
+    dilate_binary,
+    erode_binary,
+    remove_small_objects,
+    invert,
 )
+from jicbioimage.segment import connected_components
+from jicbioimage.illustrate import AnnotatedImage
+
+
+AutoName.prefix_format = "{:03d}_"
+
+
+@transformation
+def remove_scalebar(image, value):
+    """Remove the scale bar from the image."""
+    image[-42:,-154:] = value
+    return image
+
+@transformation
+def fill_holes(image, min_size):
+    AutoWrite.on = False
+    image = invert(image)
+    image = remove_small_objects(image, min_size=min_size)
+    image = invert(image)
+    AutoWrite.on = True
+    return image
 
 def tubes(input_file, output_dir=None):
     bname = os.path.basename(input_file)
@@ -19,6 +51,25 @@ def tubes(input_file, output_dir=None):
 
     image = Image.from_file(input_file)
     intensity = mean_intensity_projection(image)
+    image = find_edges_sobel(intensity)
+    image = remove_scalebar(image, 0)
+    image = threshold_otsu(image)
+    image = dilate_binary(image, selem=disk(3))
+    image = erode_binary(image, selem=disk(3))
+    image = remove_small_objects(image, min_size=500)
+    image = fill_holes(image, min_size=500)
+    image = erode_binary(image, selem=disk(3))
+    image = remove_small_objects(image, min_size=200)
+
+    segmentation = connected_components(image, background=0)
+
+    ann = AnnotatedImage.from_grayscale(intensity)
+    for i in segmentation.identifiers:
+        region = segmentation.region_by_identifier(i)
+        ann.mask_region(region.border.dilate(), color=pretty_color(i))
+
+    with open(name, "wb") as fh:
+        fh.write(ann.png())
 
 
 def analyse_all(input_dir, threshold, output_dir):
