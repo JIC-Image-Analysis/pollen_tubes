@@ -5,7 +5,9 @@ import argparse
 import warnings
 
 import numpy as np
+import scipy.ndimage
 from skimage.morphology import disk
+import skimage.feature
 
 from jicbioimage.core.image import Image
 from jicbioimage.core.transform import transformation
@@ -20,7 +22,7 @@ from jicbioimage.transform import (
     remove_small_objects,
     invert,
 )
-from jicbioimage.segment import connected_components
+from jicbioimage.segment import connected_components, watershed_with_seeds
 from jicbioimage.illustrate import AnnotatedImage
 
 
@@ -33,6 +35,7 @@ def remove_scalebar(image, value):
     image[-42:,-154:] = value
     return image
 
+
 @transformation
 def fill_holes(image, min_size):
     tmp_autowrite_on = AutoWrite.on
@@ -42,6 +45,22 @@ def fill_holes(image, min_size):
     image = invert(image)
     AutoWrite.on = tmp_autowrite_on
     return image
+
+
+@transformation
+def distance(image):
+    """Return result of an exact euclidean distance transform."""
+    return scipy.ndimage.distance_transform_edt(image)
+
+
+@transformation
+def local_maxima(image, footprint=None, labels=None):
+    """Return local maxima."""
+    return skimage.feature.peak_local_max(image,
+                                          indices=False,
+                                          footprint=footprint,
+                                          labels=labels)
+
 
 def find_tubes(input_file, output_dir=None):
     bname = os.path.basename(input_file)
@@ -92,12 +111,18 @@ def find_grains(input_file, output_dir=None):
     image = fill_holes(image, min_size=500)
     image = dilate_binary(image, selem=disk(4))
 
-    segmentation = connected_components(image, background=0)
+    dist = distance(image)
+    seeds = local_maxima(dist)
+    seeds = dilate_binary(seeds)  # Merge spurious double peaks.
+    seeds = connected_components(seeds, background=0)
+
+    segmentation = watershed_with_seeds(dist, seeds=seeds, mask=image)
 
     ann = AnnotatedImage.from_grayscale(intensity)
     for i in segmentation.identifiers:
         region = segmentation.region_by_identifier(i)
         ann.mask_region(region.border.dilate(), color=pretty_color(i))
+
 
     with open(name, "wb") as fh:
         fh.write(ann.png())
