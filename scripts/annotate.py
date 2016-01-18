@@ -3,6 +3,7 @@
 import os
 import argparse
 import warnings
+import math
 
 import numpy as np
 import scipy.ndimage
@@ -25,8 +26,17 @@ from jicbioimage.transform import (
 from jicbioimage.segment import connected_components, watershed_with_seeds
 from jicbioimage.illustrate import AnnotatedImage
 
+# Suppress spurious scikit-image warnings.
+#warnings.filterwarnings("ignore", module="skimage.exposure._adapthist")
+#warnings.filterwarnings("ignore", module="skimage.util.dtype")
+warnings.filterwarnings("ignore", module="skimage.io._io")
+
 
 AutoName.prefix_format = "{:03d}_"
+
+
+def form_factor(prop):
+    return (4 * math.pi * prop.area) / float(prop.perimeter)**2
 
 
 @transformation
@@ -34,6 +44,39 @@ def remove_scalebar(image, value):
     """Remove the scale bar from the image."""
     image[-42:,-154:] = value
     return image
+
+
+@transformation
+def threshold_abs(image, threshold):
+    return image > threshold
+
+
+@transformation
+def remove_large_segments(segmentation, max_size):
+    for i in segmentation.identifiers:
+        region = segmentation.region_by_identifier(i)
+        if region.area > max_size:
+            segmentation[region] = 0
+    return segmentation
+
+@transformation
+def remove_small_segments(segmentation, min_size):
+    for i in segmentation.identifiers:
+        region = segmentation.region_by_identifier(i)
+        print(region.area)
+        if region.area < min_size:
+            segmentation[region] = 0
+    return segmentation
+
+
+@transformation
+def remove_non_round(segmentation, props, ff_cutoff):
+    for i, p in zip(segmentation.identifiers, props):
+        region = segmentation.region_by_identifier(i)
+#       print(form_factor(p))
+        if form_factor(p) < ff_cutoff:
+            segmentation[region] = 0
+    return segmentation
 
 
 @transformation
@@ -104,11 +147,11 @@ def find_grains(input_file, output_dir=None):
     image = Image.from_file(input_file)
     intensity = mean_intensity_projection(image)
     image = remove_scalebar(intensity, np.mean(intensity))
-    image = threshold_otsu(image)
+    image = threshold_abs(image, 75)
     image = invert(image)
+    image = fill_holes(image, min_size=500)
     image = erode_binary(image, selem=disk(4))
     image = remove_small_objects(image, min_size=500)
-    image = fill_holes(image, min_size=500)
     image = dilate_binary(image, selem=disk(4))
 
     dist = distance(image)
@@ -117,11 +160,29 @@ def find_grains(input_file, output_dir=None):
     seeds = connected_components(seeds, background=0)
 
     segmentation = watershed_with_seeds(dist, seeds=seeds, mask=image)
+    initial_segmentation = np.copy(segmentation)
+    print "initial", np.min(initial_segmentation), np.max(initial_segmentation), initial_segmentation.dtype, np.sum(initial_segmentation), type(initial_segmentation)
+
+    # Remove spurious blobs.
+    segmentation = remove_large_segments(segmentation, max_size=3000)
+    segmentation = remove_small_segments(segmentation, min_size=500)
+    props = skimage.measure.regionprops(segmentation)
+    segmentation = remove_non_round(segmentation, props, 0.6)
+
+    difficult = initial_segmentation - segmentation
+    print "difficult", np.min(difficult), np.max(difficult), difficult.dtype, np.sum(difficult), type(difficult)
+    print "initial", np.min(initial_segmentation), np.max(initial_segmentation), initial_segmentation.dtype, np.sum(initial_segmentation), type(initial_segmentation)
+    print "segment", np.min(segmentation), np.max(segmentation), segmentation.dtype, np.sum(segmentation), type(segmentation)
 
     ann = AnnotatedImage.from_grayscale(intensity)
     for i in segmentation.identifiers:
         region = segmentation.region_by_identifier(i)
         ann.mask_region(region.border.dilate(), color=pretty_color(i))
+
+    for i in difficult.identifiers:
+        print("difficult", i)
+        region = difficult.region_by_identifier(i) 
+        ann.mask_region(region.border.dilate(4), color=pretty_color(i))
 
 
     with open(name, "wb") as fh:
