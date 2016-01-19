@@ -13,6 +13,7 @@ import skimage.feature
 from jicbioimage.core.image import Image
 from jicbioimage.core.transform import transformation
 from jicbioimage.core.util.color import pretty_color
+from jicbioimage.core.util.array import normalise
 from jicbioimage.core.io import AutoWrite, AutoName
 from jicbioimage.transform import (
     mean_intensity_projection,
@@ -36,13 +37,19 @@ AutoName.prefix_format = "{:03d}_"
 
 
 def form_factor(prop):
+    """Return form factor circularity measure."""
     return (4 * math.pi * prop.area) / float(prop.perimeter)**2
+
+
+def centroid(region):
+    """Return y, x centroid coordinates."""
+    return tuple([int(np.mean(ia)) for ia in region.index_arrays])
 
 
 @transformation
 def remove_scalebar(image, value):
     """Remove the scale bar from the image."""
-    image[-42:,-154:] = value
+    image[-42:, -154:] = value
     return image
 
 
@@ -53,17 +60,19 @@ def threshold_abs(image, threshold):
 
 @transformation
 def remove_large_segments(segmentation, max_size):
+    """Remove large regions from a segmentation."""
     for i in segmentation.identifiers:
         region = segmentation.region_by_identifier(i)
         if region.area > max_size:
             segmentation[region] = 0
     return segmentation
 
+
 @transformation
 def remove_small_segments(segmentation, min_size):
+    """Remove small regions from a segmentation."""
     for i in segmentation.identifiers:
         region = segmentation.region_by_identifier(i)
-        print(region.area)
         if region.area < min_size:
             segmentation[region] = 0
     return segmentation
@@ -71,6 +80,7 @@ def remove_small_segments(segmentation, min_size):
 
 @transformation
 def remove_non_round(segmentation, props, ff_cutoff):
+    """Remove non-round regions from a segmentation."""
     for i, p in zip(segmentation.identifiers, props):
         region = segmentation.region_by_identifier(i)
 #       print(form_factor(p))
@@ -81,6 +91,7 @@ def remove_non_round(segmentation, props, ff_cutoff):
 
 @transformation
 def fill_holes(image, min_size):
+    """Return image with holes filled in."""
     tmp_autowrite_on = AutoWrite.on
     AutoWrite.on = False
     image = invert(image)
@@ -106,6 +117,7 @@ def local_maxima(image, footprint=None, labels=None):
 
 
 def find_tubes(input_file, output_dir=None):
+    """Return pollen tube segmentation."""
     bname = os.path.basename(input_file)
     name, suffix = bname.split(".")
     name = "tubes-" + name + ".png"
@@ -126,18 +138,11 @@ def find_tubes(input_file, output_dir=None):
 
     segmentation = connected_components(image, background=0)
 
-    ann = AnnotatedImage.from_grayscale(intensity)
-    for i in segmentation.identifiers:
-        region = segmentation.region_by_identifier(i)
-        ann.mask_region(region.border.dilate(), color=pretty_color(i))
-
-    with open(name, "wb") as fh:
-        fh.write(ann.png())
-
     return segmentation
 
 
 def find_grains(input_file, output_dir=None):
+    """Return tuple of segmentaitons (grains, difficult_regions)."""
     bname = os.path.basename(input_file)
     name, suffix = bname.split(".")
     name = "grains-" + name + ".png"
@@ -160,8 +165,8 @@ def find_grains(input_file, output_dir=None):
     seeds = connected_components(seeds, background=0)
 
     segmentation = watershed_with_seeds(dist, seeds=seeds, mask=image)
+    # Need a copy to avoid over-writing original.
     initial_segmentation = np.copy(segmentation)
-    print "initial", np.min(initial_segmentation), np.max(initial_segmentation), initial_segmentation.dtype, np.sum(initial_segmentation), type(initial_segmentation)
 
     # Remove spurious blobs.
     segmentation = remove_large_segments(segmentation, max_size=3000)
@@ -170,31 +175,52 @@ def find_grains(input_file, output_dir=None):
     segmentation = remove_non_round(segmentation, props, 0.6)
 
     difficult = initial_segmentation - segmentation
-    print "difficult", np.min(difficult), np.max(difficult), difficult.dtype, np.sum(difficult), type(difficult)
-    print "initial", np.min(initial_segmentation), np.max(initial_segmentation), initial_segmentation.dtype, np.sum(initial_segmentation), type(initial_segmentation)
-    print "segment", np.min(segmentation), np.max(segmentation), segmentation.dtype, np.sum(segmentation), type(segmentation)
+
+    return segmentation, difficult
+
+
+def annotate(input_file, output_dir=None):
+    """Write an annotated image to disk."""
+    image = Image.from_file(input_file)
+    intensity = mean_intensity_projection(image)
+    norm_intensity = normalise(intensity)
+    norm_rgb = np.dstack([norm_intensity, norm_intensity, norm_intensity])
+
+    bname = os.path.basename(input_file)
+    name, suffix = bname.split(".")
+    name = name + ".png"
+    if output_dir:
+        name = os.path.join(output_dir, name)
+
+    tubes = find_tubes(input_file, output_dir)
+    grains, difficult = find_grains(input_file, output_dir)
 
     ann = AnnotatedImage.from_grayscale(intensity)
-    for i in segmentation.identifiers:
-        region = segmentation.region_by_identifier(i)
-        ann.mask_region(region.border.dilate(), color=pretty_color(i))
 
-    for i in difficult.identifiers:
-        print("difficult", i)
-        region = difficult.region_by_identifier(i) 
-        ann.mask_region(region.border.dilate(4), color=pretty_color(i))
+    num_tubes = 0
+    for n, i in enumerate(tubes.identifiers):
+        n = n + 1
+        region = tubes.region_by_identifier(i)
+        highlight = norm_rgb * pretty_color(i)
+        ann[region] = highlight[region]
+        ann.mask_region(region.dilate(3).border.dilate(3),
+                        color=pretty_color(i))
+        num_tubes = n
+    ann.text_at("Num tubes : {:3d}".format(num_tubes), 10, 60, antialias=True,
+                color=(255, 0, 255), size=48)
 
+    num_grains = 0
+    for n, i in enumerate(grains.identifiers):
+        n = n + 1
+        region = grains.region_by_identifier(i)
+        ann.mask_region(region.inner.inner.inner.border.dilate(),
+                        color=(0, 255, 0))
+        num_grains = n
+    ann.text_at("Num grains: {:3d}".format(num_grains), 10, 10, antialias=True,
+                color=(0, 255, 0), size=48)
 
     with open(name, "wb") as fh:
         fh.write(ann.png())
-
-    return segmentation
-
-    
-
-def annotate(input_file, output_dir=None):
-#   tubes = find_tubes(input_file, output_dir)
-    grains = find_grains(input_file, output_dir)
 
 
 def analyse_all(input_dir, output_dir):
@@ -211,7 +237,7 @@ def analyse_all(input_dir, output_dir):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input_file", help="Input jpg file")
-    parser.add_argument("--output-dir", default=None)
+    parser.add_argument("-d", "--output-dir", default=None)
     args = parser.parse_args()
 
     if os.path.isfile(args.input_file):
@@ -219,7 +245,7 @@ def main():
     elif os.path.isdir(args.input_file):
         AutoWrite.on = False
         if args.output_dir is None:
-            parser.error("Need to specify --output-dir option when using an input dir")
+            parser.error("Need to use -d option when using an input dir")
         if not os.path.isdir(args.output_dir):
             os.mkdir(args.output_dir)
         analyse_all(args.input_file, args.output_dir)
