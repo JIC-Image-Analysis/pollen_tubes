@@ -179,6 +179,31 @@ def find_grains(input_file, output_dir=None):
     return segmentation, difficult
 
 
+@transformation
+def remove_tubes_not_touching_grains(tubes, grains):
+    """Return tube segments that overlap with grain segemnts."""
+    for i in tubes.identifiers:
+        region = tubes.region_by_identifier(i)
+        overlap = np.sum(grains[region.dilate()])
+        if overlap == 0:
+            tubes[region] = 0
+    return tubes
+
+
+@transformation
+def remove_tubes_that_are_grains(tubes, grains):
+    """Return tube segments that do not engulf grain segments."""
+    grains = grains.astype(bool)
+    for i in tubes.identifiers:
+        region = tubes.region_by_identifier(i)
+        shared = np.sum(np.logical_and(grains, region))
+        tube_only = np.sum(np.logical_and(np.logical_not(grains), region))
+        overlap_ratio = float(shared) / (tube_only + shared)
+        if overlap_ratio > 0.5:
+            tubes[region] = 0
+    return tubes
+
+
 def annotate(input_file, output_dir=None):
     """Write an annotated image to disk."""
     image = Image.from_file(input_file)
@@ -194,6 +219,8 @@ def annotate(input_file, output_dir=None):
 
     tubes = find_tubes(input_file, output_dir)
     grains, difficult = find_grains(input_file, output_dir)
+    tubes = remove_tubes_not_touching_grains(tubes, grains)
+    tubes = remove_tubes_that_are_grains(tubes, grains)
 
     ann = AnnotatedImage.from_grayscale(intensity)
 
