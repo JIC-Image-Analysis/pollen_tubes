@@ -4,6 +4,7 @@ import os
 import argparse
 import warnings
 import math
+import logging
 
 import numpy as np
 import scipy.ndimage
@@ -27,11 +28,20 @@ from jicbioimage.transform import (
 from jicbioimage.segment import connected_components, watershed_with_seeds
 from jicbioimage.illustrate import AnnotatedImage
 
+
+__version__ = "0.2.0"
+
 # Suppress spurious scikit-image warnings.
 #warnings.filterwarnings("ignore", module="skimage.exposure._adapthist")
 #warnings.filterwarnings("ignore", module="skimage.util.dtype")
 warnings.filterwarnings("ignore", module="skimage.io._io")
 
+# Setup logging with a stream handler.
+logger = logging.getLogger(os.path.basename(__file__))
+logger.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+logger.addHandler(ch)
 
 AutoName.prefix_format = "{:03d}_"
 
@@ -206,6 +216,8 @@ def remove_tubes_that_are_grains(tubes, grains):
 
 def annotate(input_file, output_dir=None):
     """Write an annotated image to disk."""
+    logger.info("---")
+    logger.info("Input image: {}".format(input_file))
     image = Image.from_file(input_file)
     intensity = mean_intensity_projection(image)
     norm_intensity = normalise(intensity)
@@ -246,6 +258,7 @@ def annotate(input_file, output_dir=None):
     ann.text_at("Num grains: {:3d}".format(num_grains), 10, 10, antialias=True,
                 color=(0, 255, 0), size=48)
 
+    logger.info("Output image: {}".format(name))
     with open(name, "wb") as fh:
         fh.write(ann.png())
 
@@ -257,27 +270,36 @@ def analyse_all(input_dir, output_dir):
         if fname.lower().startswith("leicalogo"):
             continue
         fpath = os.path.join(input_dir, fname)
-        print(fpath)
         annotate(fpath, output_dir)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("input_file", help="Input jpg file")
-    parser.add_argument("-d", "--output-dir", default=None)
+    parser.add_argument("input", help="Input file/directory")
+    parser.add_argument("output_dir", help="Output directory")
     args = parser.parse_args()
 
-    if os.path.isfile(args.input_file):
-        annotate(args.input_file)
-    elif os.path.isdir(args.input_file):
+    if not os.path.isdir(args.output_dir):
+        os.mkdir(args.output_dir)
+    AutoName.directory = args.output_dir
+
+    # Create file handle logger.
+    fh = logging.FileHandler(os.path.join(args.output_dir, "log"), mode="w")
+    fh.setLevel(logging.DEBUG)
+    format_ = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(format_)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
+    logger.info("Script name: {}".format(__file__))
+    logger.info("Script version: {}".format(__version__))
+    if os.path.isfile(args.input):
+        annotate(args.input, args.output_dir)
+    elif os.path.isdir(args.input):
         AutoWrite.on = False
-        if args.output_dir is None:
-            parser.error("Need to use -d option when using an input dir")
-        if not os.path.isdir(args.output_dir):
-            os.mkdir(args.output_dir)
-        analyse_all(args.input_file, args.output_dir)
+        analyse_all(args.input, args.output_dir)
     else:
-        parser.error("{} not a file or directory".format(args.input_file))
+        parser.error("{} not a file or directory".format(args.input))
 
 if __name__ == "__main__":
     main()
