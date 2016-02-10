@@ -217,7 +217,7 @@ def remove_tubes_that_are_grains(tubes, grains):
 def annotate(input_file, output_dir=None):
     """Write an annotated image to disk."""
     logger.info("---")
-    logger.info("Input image: {}".format(input_file))
+    logger.info('Input image: "{}"'.format(os.path.abspath(input_file)))
     image = Image.from_file(input_file)
     intensity = mean_intensity_projection(image)
     norm_intensity = normalise(intensity)
@@ -258,7 +258,7 @@ def annotate(input_file, output_dir=None):
     ann.text_at("Num grains: {:3d}".format(num_grains), 10, 10, antialias=True,
                 color=(0, 255, 0), size=48)
 
-    logger.info("Output image: {}".format(name))
+    logger.info('Output image: "{}"'.format(os.path.abspath(name)))
     with open(name, "wb") as fh:
         fh.write(ann.png())
 
