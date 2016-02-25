@@ -238,6 +238,14 @@ def annotate(input_file, output_dir=None):
 
     ann = AnnotatedImage.from_grayscale(intensity)
 
+    num_grains = 0
+    for n, i in enumerate(grains.identifiers):
+        n = n + 1
+        region = grains.region_by_identifier(i)
+        ann.mask_region(region.inner.inner.inner.border.dilate(),
+                        color=(0, 255, 0))
+        num_grains = n
+
     num_tubes = 0
     for n, i in enumerate(tubes.identifiers):
         n = n + 1
@@ -247,20 +255,14 @@ def annotate(input_file, output_dir=None):
         ann.mask_region(region.dilate(3).border.dilate(3),
                         color=pretty_color(i))
         num_tubes = n
-    ann.text_at("Num tubes : {:3d}".format(num_tubes), 10, 60, antialias=True,
-                color=(255, 0, 255), size=48)
-    logger.info("Num tubes : {:3d}".format(num_tubes))
 
-    num_grains = 0
-    for n, i in enumerate(grains.identifiers):
-        n = n + 1
-        region = grains.region_by_identifier(i)
-        ann.mask_region(region.inner.inner.inner.border.dilate(),
-                        color=(0, 255, 0))
-        num_grains = n
     ann.text_at("Num grains: {:3d}".format(num_grains), 10, 10, antialias=True,
                 color=(0, 255, 0), size=48)
     logger.info("Num grains: {:3d}".format(num_grains))
+
+    ann.text_at("Num tubes : {:3d}".format(num_tubes), 10, 60, antialias=True,
+                color=(255, 0, 255), size=48)
+    logger.info("Num tubes : {:3d}".format(num_tubes))
 
     logger.info('Output image: "{}"'.format(os.path.abspath(png_name)))
     with open(png_name, "wb") as fh:
