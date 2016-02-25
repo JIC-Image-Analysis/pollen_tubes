@@ -225,9 +225,11 @@ def annotate(input_file, output_dir=None):
 
     bname = os.path.basename(input_file)
     name, suffix = bname.split(".")
-    name = name + ".png"
+    png_name = name + ".png"
+    csv_name = name + ".csv"
     if output_dir:
-        name = os.path.join(output_dir, name)
+        png_name = os.path.join(output_dir, png_name)
+        csv_name = os.path.join(output_dir, csv_name)
 
     tubes = find_tubes(input_file, output_dir)
     grains, difficult = find_grains(input_file, output_dir)
@@ -260,9 +262,14 @@ def annotate(input_file, output_dir=None):
                 color=(0, 255, 0), size=48)
     logger.info("Num grains: {:3d}".format(num_grains))
 
-    logger.info('Output image: "{}"'.format(os.path.abspath(name)))
-    with open(name, "wb") as fh:
+    logger.info('Output image: "{}"'.format(os.path.abspath(png_name)))
+    with open(png_name, "wb") as fh:
         fh.write(ann.png())
+
+    logger.info('Output csv: "{}"'.format(os.path.abspath(csv_name)))
+    with open(csv_name, "w") as fh:
+        fh.write("img,grains,tubes\n")
+        fh.write("{},{},{}\n".format(png_name,num_grains,num_tubes))
 
 
 def analyse_all(input_dir, output_dir):
