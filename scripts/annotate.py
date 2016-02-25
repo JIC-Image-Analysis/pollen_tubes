@@ -29,7 +29,7 @@ from jicbioimage.segment import connected_components, watershed_with_seeds
 from jicbioimage.illustrate import AnnotatedImage
 
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 # Suppress spurious scikit-image warnings.
 #warnings.filterwarnings("ignore", module="skimage.exposure._adapthist")
