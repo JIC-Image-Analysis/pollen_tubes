@@ -277,8 +277,7 @@ def annotate(input_file, output_dir=None):
 
 
 def analyse_all(input_dir, output_dir):
-    summary_name = os.path.basename(input_dir.rstrip("/"))
-    summary_name = "summary_" + summary_name + ".csv"
+    summary_name = "summary.csv"
     summary_name = os.path.join(output_dir, summary_name)
     logger.info('Summary csv: "{}"'.format(os.path.abspath(summary_name)))
     with open(summary_name, "w") as fh:
