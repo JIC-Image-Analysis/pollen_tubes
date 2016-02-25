@@ -247,6 +247,7 @@ def annotate(input_file, output_dir=None):
         num_tubes = n
     ann.text_at("Num tubes : {:3d}".format(num_tubes), 10, 60, antialias=True,
                 color=(255, 0, 255), size=48)
+    logger.info("Num tubes : {:3d}".format(num_tubes))
 
     num_grains = 0
     for n, i in enumerate(grains.identifiers):
@@ -257,6 +258,7 @@ def annotate(input_file, output_dir=None):
         num_grains = n
     ann.text_at("Num grains: {:3d}".format(num_grains), 10, 10, antialias=True,
                 color=(0, 255, 0), size=48)
+    logger.info("Num grains: {:3d}".format(num_grains))
 
     logger.info('Output image: "{}"'.format(os.path.abspath(name)))
     with open(name, "wb") as fh:
