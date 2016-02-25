@@ -271,17 +271,26 @@ def annotate(input_file, output_dir=None):
     logger.info('Output csv: "{}"'.format(os.path.abspath(csv_name)))
     with open(csv_name, "w") as fh:
         fh.write("img,grains,tubes\n")
-        fh.write("{},{},{}\n".format(png_name,num_grains,num_tubes))
+        fh.write("{},{},{}\n".format(png_name, num_grains, num_tubes))
+
+    return png_name, num_grains, num_tubes
 
 
 def analyse_all(input_dir, output_dir):
-    for fname in os.listdir(input_dir):
-        if not fname.lower().endswith("jpg"):
-            continue
-        if fname.lower().startswith("leicalogo"):
-            continue
-        fpath = os.path.join(input_dir, fname)
-        annotate(fpath, output_dir)
+    summary_name = os.path.basename(input_dir.rstrip("/"))
+    summary_name = "summary_" + summary_name + ".csv"
+    summary_name = os.path.join(output_dir, summary_name)
+    logger.info('Summary csv: "{}"'.format(os.path.abspath(summary_name)))
+    with open(summary_name, "w") as fh:
+        fh.write("img,grains,tubes\n")
+        for fname in os.listdir(input_dir):
+            if not fname.lower().endswith("jpg"):
+                continue
+            if fname.lower().startswith("leicalogo"):
+                continue
+            fpath = os.path.join(input_dir, fname)
+            png_name, num_grains, num_tubes = annotate(fpath, output_dir)
+            fh.write("{},{},{}\n".format(png_name, num_grains, num_tubes))
 
 
 def main():
