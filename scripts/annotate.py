@@ -259,11 +259,11 @@ def annotate(input_file, output_dir):
                         color=pretty_color(i))
         num_tubes = n
 
-    ann.text_at("Num grains: {:3d}".format(num_grains), 10, 10, antialias=True,
+    ann.text_at("Num grains: {:3d}".format(num_grains), (10, 10), antialias=True,
                 color=(0, 255, 0), size=48)
     logger.info("Num grains: {:3d}".format(num_grains))
 
-    ann.text_at("Num tubes : {:3d}".format(num_tubes), 10, 60, antialias=True,
+    ann.text_at("Num tubes : {:3d}".format(num_tubes), (60, 10), antialias=True,
                 color=(255, 0, 255), size=48)
     logger.info("Num tubes : {:3d}".format(num_tubes))
 
