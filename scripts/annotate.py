@@ -29,7 +29,7 @@ from jicbioimage.segment import connected_components, watershed_with_seeds
 from jicbioimage.illustrate import AnnotatedImage
 
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 # Suppress spurious scikit-image warnings.
 #warnings.filterwarnings("ignore", module="skimage.exposure._adapthist")
@@ -126,10 +126,16 @@ def local_maxima(image, footprint=None, labels=None):
                                           labels=labels)
 
 
+def fpath2name(fpath):
+    """Return 'test' from path /tmp/test.txt"""
+    bname = os.path.basename(fpath)
+    name, suffix = bname.split(".")
+    return name
+
+
 def find_tubes(input_file, output_dir=None):
     """Return pollen tube segmentation."""
-    bname = os.path.basename(input_file)
-    name, suffix = bname.split(".")
+    name = fpath2name(input_file)
     name = "tubes-" + name + ".png"
     if output_dir:
         name = os.path.join(output_dir, name)
@@ -153,8 +159,7 @@ def find_tubes(input_file, output_dir=None):
 
 def find_grains(input_file, output_dir=None):
     """Return tuple of segmentaitons (grains, difficult_regions)."""
-    bname = os.path.basename(input_file)
-    name, suffix = bname.split(".")
+    name = fpath2name(input_file)
     name = "grains-" + name + ".png"
     if output_dir:
         name = os.path.join(output_dir, name)
@@ -214,7 +219,7 @@ def remove_tubes_that_are_grains(tubes, grains):
     return tubes
 
 
-def annotate(input_file, output_dir=None):
+def annotate(input_file, output_dir):
     """Write an annotated image to disk."""
     logger.info("---")
     logger.info('Input image: "{}"'.format(os.path.abspath(input_file)))
@@ -223,13 +228,11 @@ def annotate(input_file, output_dir=None):
     norm_intensity = normalise(intensity)
     norm_rgb = np.dstack([norm_intensity, norm_intensity, norm_intensity])
 
-    bname = os.path.basename(input_file)
-    name, suffix = bname.split(".")
+    name = fpath2name(input_file)
     png_name = name + ".png"
     csv_name = name + ".csv"
-    if output_dir:
-        png_name = os.path.join(output_dir, png_name)
-        csv_name = os.path.join(output_dir, csv_name)
+    png_path = os.path.join(output_dir, png_name)
+    csv_path = os.path.join(output_dir, csv_name)
 
     tubes = find_tubes(input_file, output_dir)
     grains, difficult = find_grains(input_file, output_dir)
@@ -264,13 +267,12 @@ def annotate(input_file, output_dir=None):
                 color=(255, 0, 255), size=48)
     logger.info("Num tubes : {:3d}".format(num_tubes))
 
-    logger.info('Output image: "{}"'.format(os.path.abspath(png_name)))
-    with open(png_name, "wb") as fh:
+    logger.info('Output image: "{}"'.format(os.path.abspath(png_path)))
+    with open(png_path, "wb") as fh:
         fh.write(ann.png())
 
-    logger.info('Output csv: "{}"'.format(os.path.abspath(csv_name)))
-    with open(csv_name, "w") as fh:
-        fh.write("img,grains,tubes\n")
+    logger.info('Output csv: "{}"'.format(os.path.abspath(csv_path)))
+    with open(csv_path, "w") as fh:
         fh.write("{},{},{}\n".format(png_name, num_grains, num_tubes))
 
     return png_name, num_grains, num_tubes
@@ -296,6 +298,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", help="Input file/directory")
     parser.add_argument("output_dir", help="Output directory")
+    parser.add_argument("--debug", default=False, action="store_true",
+                        help="Write out intermediate images")
     args = parser.parse_args()
 
     if not os.path.isdir(args.output_dir):
@@ -303,7 +307,10 @@ def main():
     AutoName.directory = args.output_dir
 
     # Create file handle logger.
-    fh = logging.FileHandler(os.path.join(args.output_dir, "log"), mode="w")
+    log_filename = "log"
+    if os.path.isfile(args.input):
+        log_filename = fpath2name(args.input) + ".log"
+    fh = logging.FileHandler(os.path.join(args.output_dir, log_filename), mode="w")
     fh.setLevel(logging.DEBUG)
     format_ = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     formatter = logging.Formatter(format_)
@@ -312,10 +319,14 @@ def main():
 
     logger.info("Script name: {}".format(__file__))
     logger.info("Script version: {}".format(__version__))
+
+    # Only write out intermediate images in debug mode.
+    if not args.debug:
+        AutoWrite.on = False
+
     if os.path.isfile(args.input):
         annotate(args.input, args.output_dir)
     elif os.path.isdir(args.input):
-        AutoWrite.on = False
         analyse_all(args.input, args.output_dir)
     else:
         parser.error("{} not a file or directory".format(args.input))
