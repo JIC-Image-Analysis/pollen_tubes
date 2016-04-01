@@ -57,13 +57,6 @@ def centroid(region):
 
 
 @transformation
-def remove_scalebar(image, value):
-    """Remove the scale bar from the image."""
-    image[-42:, -154:] = value
-    return image
-
-
-@transformation
 def threshold_abs(image, threshold):
     return image > threshold
 
@@ -143,7 +136,6 @@ def find_tubes(input_file, output_dir=None):
     image = Image.from_file(input_file)
     intensity = mean_intensity_projection(image)
     image = find_edges_sobel(intensity)
-    image = remove_scalebar(image, 0)
     image = threshold_otsu(image)
     image = dilate_binary(image, selem=disk(3))
     image = erode_binary(image, selem=disk(3))
@@ -166,8 +158,7 @@ def find_grains(input_file, output_dir=None):
 
     image = Image.from_file(input_file)
     intensity = mean_intensity_projection(image)
-    image = remove_scalebar(intensity, np.mean(intensity))
-    image = threshold_abs(image, 75)
+    image = threshold_abs(intensity, 75)
     image = invert(image)
     image = fill_holes(image, min_size=500)
     image = erode_binary(image, selem=disk(4))
