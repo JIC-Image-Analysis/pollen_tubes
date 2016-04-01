@@ -158,12 +158,13 @@ def find_grains(input_file, output_dir=None):
 
     image = Image.from_file(input_file)
     intensity = mean_intensity_projection(image)
-    image = threshold_abs(intensity, 75)
+    print(np.min(intensity), np.mean(intensity), np.max(intensity))
+    image = threshold_abs(intensity, 140)
     image = invert(image)
     image = fill_holes(image, min_size=500)
-    image = erode_binary(image, selem=disk(4))
-    image = remove_small_objects(image, min_size=500)
-    image = dilate_binary(image, selem=disk(4))
+    image = erode_binary(image, selem=disk(1))
+    image = remove_small_objects(image, min_size=50)
+    image = dilate_binary(image, selem=disk(2))
 
     dist = distance(image)
     seeds = local_maxima(dist)
@@ -175,8 +176,8 @@ def find_grains(input_file, output_dir=None):
     initial_segmentation = np.copy(segmentation)
 
     # Remove spurious blobs.
-    segmentation = remove_large_segments(segmentation, max_size=3000)
-    segmentation = remove_small_segments(segmentation, min_size=500)
+#   segmentation = remove_large_segments(segmentation, max_size=3000)
+#   segmentation = remove_small_segments(segmentation, min_size=500)
     props = skimage.measure.regionprops(segmentation)
     segmentation = remove_non_round(segmentation, props, 0.6)
 
