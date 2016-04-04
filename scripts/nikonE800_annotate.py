@@ -126,29 +126,6 @@ def fpath2name(fpath):
     return name
 
 
-def find_tubes(input_file, output_dir=None):
-    """Return pollen tube segmentation."""
-    name = fpath2name(input_file)
-    name = "tubes-" + name + ".png"
-    if output_dir:
-        name = os.path.join(output_dir, name)
-
-    image = Image.from_file(input_file)
-    intensity = mean_intensity_projection(image)
-    image = find_edges_sobel(intensity)
-    image = threshold_otsu(image)
-    image = dilate_binary(image, selem=disk(3))
-    image = erode_binary(image, selem=disk(3))
-    image = remove_small_objects(image, min_size=500)
-    image = fill_holes(image, min_size=500)
-    image = erode_binary(image, selem=disk(3))
-    image = remove_small_objects(image, min_size=200)
-
-    segmentation = connected_components(image, background=0)
-
-    return segmentation
-
-
 def find_grains(input_file, output_dir=None):
     """Return tuple of segmentaitons (grains, difficult_regions)."""
     name = fpath2name(input_file)
@@ -226,10 +203,7 @@ def annotate(input_file, output_dir):
     png_path = os.path.join(output_dir, png_name)
     csv_path = os.path.join(output_dir, csv_name)
 
-    tubes = find_tubes(input_file, output_dir)
     grains, difficult = find_grains(input_file, output_dir)
-    tubes = remove_tubes_not_touching_grains(tubes, grains)
-    tubes = remove_tubes_that_are_grains(tubes, grains)
 
     ann = AnnotatedImage.from_grayscale(intensity)
 
@@ -241,23 +215,10 @@ def annotate(input_file, output_dir):
                         color=(0, 255, 0))
         num_grains = n
 
-    num_tubes = 0
-    for n, i in enumerate(tubes.identifiers):
-        n = n + 1
-        region = tubes.region_by_identifier(i)
-        highlight = norm_rgb * pretty_color(i)
-        ann[region] = highlight[region]
-        ann.mask_region(region.dilate(3).border.dilate(3),
-                        color=pretty_color(i))
-        num_tubes = n
-
     ann.text_at("Num grains: {:3d}".format(num_grains), (10, 10), antialias=True,
                 color=(0, 255, 0), size=48)
     logger.info("Num grains: {:3d}".format(num_grains))
 
-    ann.text_at("Num tubes : {:3d}".format(num_tubes), (60, 10), antialias=True,
-                color=(255, 0, 255), size=48)
-    logger.info("Num tubes : {:3d}".format(num_tubes))
 
     logger.info('Output image: "{}"'.format(os.path.abspath(png_path)))
     with open(png_path, "wb") as fh:
@@ -265,9 +226,9 @@ def annotate(input_file, output_dir):
 
     logger.info('Output csv: "{}"'.format(os.path.abspath(csv_path)))
     with open(csv_path, "w") as fh:
-        fh.write("{},{},{}\n".format(png_name, num_grains, num_tubes))
+        fh.write("{},{}\n".format(png_name, num_grains))
 
-    return png_name, num_grains, num_tubes
+    return png_name, num_grains
 
 
 def analyse_all(input_dir, output_dir):
@@ -275,15 +236,15 @@ def analyse_all(input_dir, output_dir):
     summary_name = os.path.join(output_dir, summary_name)
     logger.info('Summary csv: "{}"'.format(os.path.abspath(summary_name)))
     with open(summary_name, "w") as fh:
-        fh.write("img,grains,tubes\n")
+        fh.write("img,grains\n")
         for fname in os.listdir(input_dir):
             if not fname.lower().endswith("jpg"):
                 continue
             if fname.lower().startswith("leicalogo"):
                 continue
             fpath = os.path.join(input_dir, fname)
-            png_name, num_grains, num_tubes = annotate(fpath, output_dir)
-            fh.write("{},{},{}\n".format(png_name, num_grains, num_tubes))
+            png_name, num_grains = annotate(fpath, output_dir)
+            fh.write("{},{}\n".format(png_name, num_grains))
 
 
 def main():
