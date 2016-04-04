@@ -14,7 +14,6 @@ import skimage.feature
 from jicbioimage.core.image import Image
 from jicbioimage.core.transform import transformation
 from jicbioimage.core.util.color import pretty_color
-from jicbioimage.core.util.array import normalise
 from jicbioimage.core.io import AutoWrite, AutoName
 from jicbioimage.transform import (
     mean_intensity_projection,
@@ -147,7 +146,6 @@ def find_grains(input_file, output_dir=None):
     seeds = dilate_binary(seeds)  # Merge spurious double peaks.
     seeds = connected_components(seeds, background=0)
 
-
     segmentation = watershed_with_seeds(dist, seeds=seeds, mask=image)
     areas = []
     for i in segmentation.identifiers:
@@ -166,30 +164,6 @@ def find_grains(input_file, output_dir=None):
 
 
 @transformation
-def remove_tubes_not_touching_grains(tubes, grains):
-    """Return tube segments that overlap with grain segemnts."""
-    for i in tubes.identifiers:
-        region = tubes.region_by_identifier(i)
-        overlap = np.sum(grains[region.dilate()])
-        if overlap == 0:
-            tubes[region] = 0
-    return tubes
-
-
-@transformation
-def remove_tubes_that_are_grains(tubes, grains):
-    """Return tube segments that do not engulf grain segments."""
-    grains = grains.astype(bool)
-    for i in tubes.identifiers:
-        region = tubes.region_by_identifier(i)
-        shared = np.sum(np.logical_and(grains, region))
-        tube_only = np.sum(np.logical_and(np.logical_not(grains), region))
-        overlap_ratio = float(shared) / (tube_only + shared)
-        if overlap_ratio > 0.5:
-            tubes[region] = 0
-    return tubes
-
-
 def annotate(input_file, output_dir):
     """Write an annotated image to disk."""
     logger.info("---")
@@ -215,10 +189,9 @@ def annotate(input_file, output_dir):
                         color=pretty_color(i))
         num_grains = n
 
-    ann.text_at("Num grains: {:3d}".format(num_grains), (10, 10), antialias=True,
-                color=(0, 255, 0), size=48)
+    ann.text_at("Num grains: {:3d}".format(num_grains), (10, 10),
+                antialias=True, color=(0, 255, 0), size=48)
     logger.info("Num grains: {:3d}".format(num_grains))
-
 
     logger.info('Output image: "{}"'.format(os.path.abspath(png_path)))
     with open(png_path, "wb") as fh:
@@ -263,7 +236,8 @@ def main():
     log_filename = "log"
     if os.path.isfile(args.input):
         log_filename = fpath2name(args.input) + ".log"
-    fh = logging.FileHandler(os.path.join(args.output_dir, log_filename), mode="w")
+    fh = logging.FileHandler(os.path.join(args.output_dir, log_filename),
+                             mode="w")
     fh.setLevel(logging.DEBUG)
     format_ = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     formatter = logging.Formatter(format_)
