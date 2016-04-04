@@ -211,7 +211,7 @@ def annotate(input_file, output_dir):
     for n, i in enumerate(grains.identifiers):
         n = n + 1
         region = grains.region_by_identifier(i)
-        ann.mask_region(region.inner.dilate().border,
+        ann.mask_region(region.inner.border.dilate(),
                         color=pretty_color(i))
         num_grains = n
 
