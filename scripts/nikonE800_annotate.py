@@ -17,7 +17,7 @@ from jicbioimage.core.util.color import pretty_color
 from jicbioimage.core.io import AutoWrite, AutoName
 from jicbioimage.transform import (
     mean_intensity_projection,
-    threshold_otsu,
+    # threshold_otsu,
     dilate_binary,
     erode_binary,
     remove_small_objects,
@@ -55,8 +55,8 @@ def centroid(region):
 
 
 @transformation
-def threshold_abs(image, threshold):
-    return image > threshold
+def threshold_median(image, scale=0):
+    return image > np.median(image) * scale
 
 
 @transformation
@@ -122,7 +122,11 @@ def find_grains(input_file, output_dir=None):
 
     image = Image.from_file(input_file)
     intensity = mean_intensity_projection(image)
-    image = threshold_otsu(intensity)
+
+# Median filter seems more robust than Otsu.
+#   image = threshold_otsu(intensity)
+    image = threshold_median(intensity, scale=0.8)
+
     image = invert(image)
     image = erode_binary(image, selem=disk(2))
     image = dilate_binary(image, selem=disk(2))
