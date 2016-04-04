@@ -81,17 +81,6 @@ def remove_small_segments(segmentation, min_size):
 
 
 @transformation
-def remove_non_round(segmentation, props, ff_cutoff):
-    """Remove non-round regions from a segmentation."""
-    for i, p in zip(segmentation.identifiers, props):
-        region = segmentation.region_by_identifier(i)
-#       print(form_factor(p))
-        if form_factor(p) < ff_cutoff:
-            segmentation[region] = 0
-    return segmentation
-
-
-@transformation
 def fill_holes(image, min_size):
     """Return image with holes filled in."""
     tmp_autowrite_on = AutoWrite.on
@@ -152,9 +141,6 @@ def find_grains(input_file, output_dir=None):
     # Remove spurious blobs.
     segmentation = remove_large_segments(segmentation, max_size=3000)
     segmentation = remove_small_segments(segmentation, min_size=100)
-
-#   props = skimage.measure.regionprops(segmentation)
-#   segmentation = remove_non_round(segmentation, props, 0.6)
 
 
     return segmentation
