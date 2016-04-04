@@ -135,32 +135,34 @@ def find_grains(input_file, output_dir=None):
 
     image = Image.from_file(input_file)
     intensity = mean_intensity_projection(image)
-    print(np.min(intensity), np.mean(intensity), np.max(intensity))
-    image = threshold_abs(intensity, 140)
+    image = threshold_otsu(intensity)
     image = invert(image)
-    image = fill_holes(image, min_size=500)
-    image = erode_binary(image, selem=disk(1))
-    image = remove_small_objects(image, min_size=50)
+    image = erode_binary(image, selem=disk(2))
     image = dilate_binary(image, selem=disk(2))
+    image = remove_small_objects(image, min_size=200)
+    image = fill_holes(image, min_size=50)
 
     dist = distance(image)
     seeds = local_maxima(dist)
     seeds = dilate_binary(seeds)  # Merge spurious double peaks.
     seeds = connected_components(seeds, background=0)
 
+
     segmentation = watershed_with_seeds(dist, seeds=seeds, mask=image)
-    # Need a copy to avoid over-writing original.
-    initial_segmentation = np.copy(segmentation)
+    areas = []
+    for i in segmentation.identifiers:
+        region = segmentation.region_by_identifier(i)
+        areas.append(region.area)
+    print(sorted(areas))
+    print("median:", np.median(areas))
 
     # Remove spurious blobs.
 #   segmentation = remove_large_segments(segmentation, max_size=3000)
 #   segmentation = remove_small_segments(segmentation, min_size=500)
-    props = skimage.measure.regionprops(segmentation)
-    segmentation = remove_non_round(segmentation, props, 0.6)
+#   props = skimage.measure.regionprops(segmentation)
+#   segmentation = remove_non_round(segmentation, props, 0.6)
 
-    difficult = initial_segmentation - segmentation
-
-    return segmentation, difficult
+    return segmentation
 
 
 @transformation
@@ -194,8 +196,6 @@ def annotate(input_file, output_dir):
     logger.info('Input image: "{}"'.format(os.path.abspath(input_file)))
     image = Image.from_file(input_file)
     intensity = mean_intensity_projection(image)
-    norm_intensity = normalise(intensity)
-    norm_rgb = np.dstack([norm_intensity, norm_intensity, norm_intensity])
 
     name = fpath2name(input_file)
     png_name = name + ".png"
@@ -203,7 +203,7 @@ def annotate(input_file, output_dir):
     png_path = os.path.join(output_dir, png_name)
     csv_path = os.path.join(output_dir, csv_name)
 
-    grains, difficult = find_grains(input_file, output_dir)
+    grains = find_grains(input_file, output_dir)
 
     ann = AnnotatedImage.from_grayscale(intensity)
 
@@ -211,8 +211,8 @@ def annotate(input_file, output_dir):
     for n, i in enumerate(grains.identifiers):
         n = n + 1
         region = grains.region_by_identifier(i)
-        ann.mask_region(region.inner.inner.inner.border.dilate(),
-                        color=(0, 255, 0))
+        ann.mask_region(region.inner.dilate().border,
+                        color=pretty_color(i))
         num_grains = n
 
     ann.text_at("Num grains: {:3d}".format(num_grains), (10, 10), antialias=True,
