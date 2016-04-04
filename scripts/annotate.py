@@ -32,8 +32,8 @@ from jicbioimage.illustrate import AnnotatedImage
 __version__ = "0.4.0"
 
 # Suppress spurious scikit-image warnings.
-#warnings.filterwarnings("ignore", module="skimage.exposure._adapthist")
-#warnings.filterwarnings("ignore", module="skimage.util.dtype")
+# warnings.filterwarnings("ignore", module="skimage.exposure._adapthist")
+# warnings.filterwarnings("ignore", module="skimage.util.dtype")
 warnings.filterwarnings("ignore", module="skimage.io._io")
 
 # Setup logging with a stream handler.
@@ -259,12 +259,12 @@ def annotate(input_file, output_dir):
                         color=pretty_color(i))
         num_tubes = n
 
-    ann.text_at("Num grains: {:3d}".format(num_grains), (10, 10), antialias=True,
-                color=(0, 255, 0), size=48)
+    ann.text_at("Num grains: {:3d}".format(num_grains), (10, 10),
+                antialias=True, color=(0, 255, 0), size=48)
     logger.info("Num grains: {:3d}".format(num_grains))
 
-    ann.text_at("Num tubes : {:3d}".format(num_tubes), (60, 10), antialias=True,
-                color=(255, 0, 255), size=48)
+    ann.text_at("Num tubes : {:3d}".format(num_tubes), (60, 10),
+                antialias=True, color=(255, 0, 255), size=48)
     logger.info("Num tubes : {:3d}".format(num_tubes))
 
     logger.info('Output image: "{}"'.format(os.path.abspath(png_path)))
@@ -310,7 +310,8 @@ def main():
     log_filename = "log"
     if os.path.isfile(args.input):
         log_filename = fpath2name(args.input) + ".log"
-    fh = logging.FileHandler(os.path.join(args.output_dir, log_filename), mode="w")
+    fh = logging.FileHandler(os.path.join(args.output_dir, log_filename),
+                             mode="w")
     fh.setLevel(logging.DEBUG)
     format_ = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     formatter = logging.Formatter(format_)

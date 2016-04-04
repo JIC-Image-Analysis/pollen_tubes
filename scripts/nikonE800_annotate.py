@@ -17,7 +17,6 @@ from jicbioimage.core.util.color import pretty_color
 from jicbioimage.core.io import AutoWrite, AutoName
 from jicbioimage.transform import (
     mean_intensity_projection,
-    find_edges_sobel,
     threshold_otsu,
     dilate_binary,
     erode_binary,
@@ -31,8 +30,8 @@ from jicbioimage.illustrate import AnnotatedImage
 __version__ = "0.4.0"
 
 # Suppress spurious scikit-image warnings.
-#warnings.filterwarnings("ignore", module="skimage.exposure._adapthist")
-#warnings.filterwarnings("ignore", module="skimage.util.dtype")
+# warnings.filterwarnings("ignore", module="skimage.exposure._adapthist")
+# warnings.filterwarnings("ignore", module="skimage.util.dtype")
 warnings.filterwarnings("ignore", module="skimage.io._io")
 
 # Setup logging with a stream handler.
@@ -114,7 +113,6 @@ def fpath2name(fpath):
     return name
 
 
-
 def find_grains(input_file, output_dir=None):
     """Return tuple of segmentaitons (grains, difficult_regions)."""
     name = fpath2name(input_file)
@@ -141,7 +139,6 @@ def find_grains(input_file, output_dir=None):
     # Remove spurious blobs.
     segmentation = remove_large_segments(segmentation, max_size=3000)
     segmentation = remove_small_segments(segmentation, min_size=100)
-
 
     return segmentation
 
