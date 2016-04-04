@@ -125,6 +125,7 @@ def fpath2name(fpath):
     return name
 
 
+
 def find_grains(input_file, output_dir=None):
     """Return tuple of segmentaitons (grains, difficult_regions)."""
     name = fpath2name(input_file)
@@ -147,23 +148,18 @@ def find_grains(input_file, output_dir=None):
     seeds = connected_components(seeds, background=0)
 
     segmentation = watershed_with_seeds(dist, seeds=seeds, mask=image)
-    areas = []
-    for i in segmentation.identifiers:
-        region = segmentation.region_by_identifier(i)
-        areas.append(region.area)
-    print(sorted(areas))
-    print("median:", np.median(areas))
 
     # Remove spurious blobs.
-#   segmentation = remove_large_segments(segmentation, max_size=3000)
-#   segmentation = remove_small_segments(segmentation, min_size=500)
+    segmentation = remove_large_segments(segmentation, max_size=3000)
+    segmentation = remove_small_segments(segmentation, min_size=100)
+
 #   props = skimage.measure.regionprops(segmentation)
 #   segmentation = remove_non_round(segmentation, props, 0.6)
+
 
     return segmentation
 
 
-@transformation
 def annotate(input_file, output_dir):
     """Write an annotated image to disk."""
     logger.info("---")
@@ -181,13 +177,28 @@ def annotate(input_file, output_dir):
 
     ann = AnnotatedImage.from_grayscale(intensity)
 
-    num_grains = 0
-    for n, i in enumerate(grains.identifiers):
-        n = n + 1
+    # Determine the median grain size based on the segmented regions.
+    areas = []
+    for i in grains.identifiers:
         region = grains.region_by_identifier(i)
-        ann.mask_region(region.inner.border.dilate(),
-                        color=pretty_color(i))
-        num_grains = n
+        areas.append(region.area)
+    median_grain_size = np.median(areas)
+
+    num_grains = 0
+    for i in grains.identifiers:
+        region = grains.region_by_identifier(i)
+        color = pretty_color(i)
+        num_grains_in_area = region.area / median_grain_size
+        num_grains_in_area = int(round(num_grains_in_area))
+        if num_grains_in_area == 0:
+            continue
+
+        outer_line = region.dilate().border
+        outline = region.border.dilate() * np.logical_not(outer_line)
+        ann.mask_region(outline, color=color)
+        ann.text_at(str(num_grains_in_area), region.centroid,
+                    color=(255, 255, 255))
+        num_grains = num_grains + num_grains_in_area
 
     ann.text_at("Num grains: {:3d}".format(num_grains), (10, 10),
                 antialias=True, color=(0, 255, 0), size=48)
