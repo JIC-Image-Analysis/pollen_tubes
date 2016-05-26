@@ -59,6 +59,6 @@ BioImage framework](https://github.com/JIC-CSB/jicbioimage).  The image
 anslysis made use of several scientific Python packages including numpy [ref1],
 scipy [ref2], and scikit-image [ref3].
 
-[ref1] http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=5725236
-[ref2] Jones E, Oliphant E, Peterson P, et al. SciPy: Open Source Scientific Tools for Python, 2001-, http://www.scipy.org/ [Online; accessed 2016-04-11].
-[ref3] https://peerj.com/articles/453/
+- [ref1] http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=5725236
+- [ref2] Jones E, Oliphant E, Peterson P, et al. SciPy: Open Source Scientific Tools for Python, 2001-, http://www.scipy.org/ [Online; accessed 2016-04-11].
+- [ref3] https://peerj.com/articles/453/
