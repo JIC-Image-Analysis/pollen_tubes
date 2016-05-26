@@ -1,10 +1,9 @@
 # README
 
-Count pollen grains and tubes.
+Scripts to identify pollen grains and tubes in images.
 
-```
-$ python scripts/annotate.py data/raw/wt/TileScan_001/ -d output_dir
-```
+For information about the algorithms see the [methodology](methodology.md).
+
 
 ## Running the code
 
